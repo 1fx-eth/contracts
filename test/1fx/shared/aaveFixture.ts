@@ -41,7 +41,8 @@ import {
 } from '../../../types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
-import { ONE_18 } from './aaveBrokerFixture';
+
+const ONE_18 = BigNumber.from(18).pow(10)
 
 
 export interface AAVEFixture {
@@ -104,17 +105,17 @@ const testEnv: AAVEFixture = {
 } as AAVEFixture;
 
 const _tokenData = [
-  { symbol: 'WETH', name: 'WETH', decimals: 18 },
-  { symbol: 'DAI', name: 'DAI', decimals: 18 },
-  { symbol: 'AAVE', name: 'AAVE', decimals: 18 },
-  { symbol: 'WMATIC', name: 'WMATIC', decimals: 18 },
-  { symbol: 'USDC', name: 'USDC', decimals: 6 }
+  { symbol: 'WETH', name: 'WETH', decimals: 18, emode: false },
+  { symbol: 'DAI', name: 'DAI', decimals: 18, emode: true },
+  { symbol: 'AAVE', name: 'AAVE', decimals: 18, emode: false },
+  { symbol: 'WMATIC', name: 'WMATIC', decimals: 18, emode: false },
+  { symbol: 'USDC', name: 'USDC', decimals: 18, emode: true }
 ]
 
 const _tokenDataExtend = [
   ..._tokenData,
-  { symbol: 'TEST1', name: 'TEST1', decimals: 18 },
-  { symbol: 'TEST2', name: 'TEST2', decimals: 18 },
+  { symbol: 'TEST1', name: 'TEST1', decimals: 18, emode: false },
+  { symbol: 'TEST2', name: 'TEST2', decimals: 18, emode: false },
 ]
 
 
@@ -245,6 +246,7 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
   const vToken = await new VariableDebtToken__factory(_deployer).deploy(testEnv.pool.address)
 
   const ic = await new MockIncentivesController__factory(_deployer).deploy()
+  await testEnv.configurator.setEModeCategory(1, 9900, 9905, 10010, testEnv.oracle.address, "testEmode")
   for (let i = 0; i < tokenData.length; i++) {
     const td = tokens[tokenData[i].symbol]
     const tfd = tokenData[i]
@@ -278,10 +280,15 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
     // activate reserve
     await testEnv.configurator.setReserveActive(td.address, true)
     await testEnv.configurator.setReserveBorrowing(td.address, true)
-    await testEnv.configurator.configureReserveAsCollateral(td.address, 9900, 9950, 10010)
+    await testEnv.configurator.configureReserveAsCollateral(td.address, 9000, 9050, 10010)
+    
     await testEnv.configurator.setReserveStableRateBorrowing(td.address, true)
     // set mock price
     await testEnv.oracle.setAssetPrice(td.address, ONE_18)
+
+    if(tfd.emode){
+      await testEnv.configurator.setAssetEModeCategory(td.address,1)
+    }
   }
 
 

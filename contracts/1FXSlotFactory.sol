@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable max-line-length */
+
 import "./external-protocols/openzeppelin/utils/Create2.sol";
 import "./external-protocols/openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
-
+import "./external-protocols/openzeppelin/utils/structs/EnumerableSet.sol";
 import "./1FXSlot.sol";
 
 /**
@@ -14,9 +16,11 @@ import "./1FXSlot.sol";
  */
 contract OneFXSlotFactory {
     OneFXSlot public immutable accountImplementation;
+    mapping(address => EnumerableSet.UintSet) private _userPositions;
+    uint256 public currentId;
 
-    constructor(IEntryPoint _entryPoint) {
-        accountImplementation = new OneFXSlot(_entryPoint);
+    constructor(IEntryPoint _entryPoint, address _aavePool, address _1inchRouter) {
+        accountImplementation = new OneFXSlot(_entryPoint, _aavePool, _1inchRouter);
     }
 
     /**
@@ -25,28 +29,32 @@ contract OneFXSlotFactory {
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      */
-    function createAccount(address owner,uint256 salt) public returns (OneFXSlot ret) {
+    function createSlot(address owner) public returns (OneFXSlot ret) {
+        uint256 salt = ++currentId;
         address addr = getAddress(owner, salt);
-        uint codeSize = addr.code.length;
+        uint256 codeSize = addr.code.length;
         if (codeSize > 0) {
             return OneFXSlot(payable(addr));
         }
-        ret = OneFXSlot(payable(new ERC1967Proxy{salt : bytes32(salt)}(
-                address(accountImplementation),
-                abi.encodeCall(OneFXSlot.initialize, (owner))
-            )));
+        ret = OneFXSlot(
+            payable(new ERC1967Proxy{salt: bytes32(salt)}(address(accountImplementation), abi.encodeCall(OneFXSlot.initialize, (owner))))
+        );
     }
 
     /**
-     * calculate the counterfactual address of this account as it would be returned by createAccount()
+     * calculate the counterfactual address of this account as it would be returned by createSlot()
      */
-    function getAddress(address owner,uint256 salt) public view returns (address) {
-        return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
-                type(ERC1967Proxy).creationCode,
-                abi.encode(
-                    address(accountImplementation),
-                    abi.encodeCall(OneFXSlot.initialize, (owner))
+    function getAddress(address owner, uint256 salt) public view returns (address) {
+        return
+            Create2.computeAddress(
+                bytes32(salt),
+                keccak256(
+                    abi.encodePacked(
+                        type(ERC1967Proxy).creationCode,
+                        abi.encode(address(accountImplementation), abi.encodeCall(OneFXSlot.initialize, (owner)))
+                    )
                 )
-            )));
+            );
     }
+    
 }

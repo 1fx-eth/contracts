@@ -4,19 +4,22 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
+/* solhint-disable max-line-length */
 
+// account security
 import "./external-protocols/openzeppelin/utils/cryptography/ECDSA.sol";
 import "./external-protocols/openzeppelin/proxy/utils/Initializable.sol";
 import "./external-protocols/openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "./abstract-account/BaseAccount.sol";
+import "./utils/AaveHandler.sol";
 
 /**
-  * minimal account.
-  *  this is sample minimal account.
-  *  has execute, eth handling methods
-  *  has a single signer that can send requests through the entryPoint.
-  */
-contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
+ * minimal account.
+ *  this is sample minimal account.
+ *  has execute, eth handling methods
+ *  has a single signer that can send requests through the entryPoint.
+ */
+contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
     using ECDSA for bytes32;
 
     address public owner;
@@ -35,11 +38,14 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
         return _entryPoint;
     }
 
-
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
-    constructor(IEntryPoint anEntryPoint) {
+    constructor(
+        IEntryPoint anEntryPoint,
+        address _aavePool,
+        address _1inchRouter
+    ) AaveHandler(_aavePool, _1inchRouter) {
         _entryPoint = anEntryPoint;
         _disableInitializers();
     }
@@ -52,7 +58,11 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
     /**
      * execute a transaction (called directly from owner, or by entryPoint)
      */
-    function execute(address dest, uint256 value, bytes calldata func) external {
+    function execute(
+        address dest,
+        uint256 value,
+        bytes calldata func
+    ) external {
         _requireFromEntryPointOrOwner();
         _call(dest, value, func);
     }
@@ -71,7 +81,7 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
     /**
      * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
      * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
-      * the implementation by calling `upgradeTo()`
+     * the implementation by calling `upgradeTo()`
      */
     function initialize(address anOwner) public virtual initializer {
         _initialize(anOwner);
@@ -88,16 +98,18 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
     }
 
     /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash) internal virtual override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
-        if (owner != hash.recover(userOp.signature))
-            return SIG_VALIDATION_FAILED;
+        if (owner != hash.recover(userOp.signature)) return SIG_VALIDATION_FAILED;
         return 0;
     }
 
-    function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value : value}(data);
+    function _call(
+        address target,
+        uint256 value,
+        bytes memory data
+    ) internal {
+        (bool success, bytes memory result) = target.call{value: value}(data);
         if (!success) {
             assembly {
                 revert(add(result, 32), mload(result))
@@ -116,7 +128,7 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
      * deposit more funds for this account in the entryPoint
      */
     function addDeposit() public payable {
-        entryPoint().depositTo{value : msg.value}(address(this));
+        entryPoint().depositTo{value: msg.value}(address(this));
     }
 
     /**
@@ -133,4 +145,3 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable {
         _onlyOwner();
     }
 }
-

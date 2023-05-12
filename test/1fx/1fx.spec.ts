@@ -1,23 +1,30 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { BigNumber, constants } from 'ethers';
 import { ethers } from 'hardhat'
-import { MintableERC20, WETH9 } from '../../types';
-import { initializeMakeSuite, InterestRateMode, AAVEFixture } from '../1fx/shared/aaveFixture';
+import { EntryPoint, EntryPoint__factory, MintableERC20, MockRouter, MockRouter__factory, OneFXSlotFactory, OneFXSlotFactory__factory, WETH9 } from '../../types';
+import { initializeMakeSuite, InterestRateMode, AAVEFixture } from './shared/aaveFixture';
 
 const ONE_18 = BigNumber.from(10).pow(18)
 
 // we prepare a setup for compound in hardhat
 // this series of tests checks that the features used for the margin swap implementation
 // are correctly set up and working
-describe('AAVE setup', async () => {
+describe('1fx Test', async () => {
     let deployer: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress, carol: SignerWithAddress;
     let aaveTest: AAVEFixture
     let tokens: (MintableERC20 | WETH9)[];
+    let factory: OneFXSlotFactory
+    let entryPoint: EntryPoint
+    let mockRouter: MockRouter
 
-    beforeEach('Deploy AAVE', async () => {
+    beforeEach('Deploy Aave', async () => {
         [deployer, alice, bob, carol] = await ethers.getSigners();
+        entryPoint = await new EntryPoint__factory(deployer).deploy()
+
+        mockRouter = await new MockRouter__factory(deployer).deploy(ONE_18)
 
         aaveTest = await initializeMakeSuite(deployer)
+        factory = await new OneFXSlotFactory__factory(deployer).deploy(entryPoint.address, aaveTest.pool.address, mockRouter.address)
         tokens = Object.values(aaveTest.tokens)
 
         // adds liquidity to the protocol
@@ -46,6 +53,11 @@ describe('AAVE setup', async () => {
         await aaveTest.pool.connect(alice).setUserUseReserveAsCollateral(DAI.address, true)
         await aaveTest.pool.connect(alice).borrow(WETH.address, ONE_18, InterestRateMode.VARIABLE, 0, alice.address)
     })
+
+    it('deploys slot', async () => {
+        await factory.connect(alice).createSlot(alice.address)
+    })
+
 
 
 })
