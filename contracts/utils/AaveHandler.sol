@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-
 // pool and tokens
 import "../external-protocols/aave-v3-core/interfaces/IPool.sol";
 import "../external-protocols/aave-v3-core/interfaces/IAToken.sol";
@@ -61,7 +60,7 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         IERC20(assetBorrow).approve(oneInch, type(uint256).max);
 
         // transfer collateral from user and deposit to aave
-        IERC20(assetCollateral).transferFrom(_depositor, address(this), _amountCollateral);        
+        IERC20(assetCollateral).transferFrom(_depositor, address(this), _amountCollateral);
         IPool(pool).deposit(assetCollateral, _amountCollateral, address(this), 0);
         // check eMode -> has to match
         uint8 _eMode = validateEMode(assetCollateral, assetBorrow);
@@ -147,6 +146,8 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         bytes memory callData = abi.encode(_swapTarget, _swapParams, _borrowAmount);
         IPool(AAVE_POOL).flashLoanSimple(address(this), COLLATERAL, _targetCollateralAmount, callData, 0);
     }
+
+    function _closePosition() internal {}
 
     function validateEMode(address asset0, address asset1) public view returns (uint8 eMode) {
         eMode = getEMode(asset0);
