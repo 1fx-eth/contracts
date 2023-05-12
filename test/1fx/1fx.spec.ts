@@ -1,5 +1,7 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { expect } from 'chai';
 import { BigNumber, constants } from 'ethers';
+import { formatEther, parseUnits } from 'ethers/lib/utils';
 import { ethers } from 'hardhat'
 import { EntryPoint, EntryPoint__factory, MintableERC20, MockRouter, MockRouter__factory, OneFXSlotFactory, OneFXSlotFactory__factory, WETH9 } from '../../types';
 import { initializeMakeSuite, InterestRateMode, AAVEFixture } from './shared/aaveFixture';
@@ -35,9 +37,14 @@ describe('1fx Test', async () => {
             if (key === "WETH") {
                 await (aaveTest.tokens[key] as WETH9).deposit({ value: ONE_18.mul(1000) })
             } else {
-                await (aaveTest.tokens[key] as MintableERC20)['mint(address,uint256)'](deployer.address, ONE_18.mul(1_000_000))
+                await (aaveTest.tokens[key] as MintableERC20)['mint(address,uint256)'](deployer.address, ONE_18.mul(100_000_000))
+
+                await aaveTest.tokens[key].connect(deployer).transfer(alice.address, ONE_18.mul(1_000_000))
+                // add balances to router
+                await aaveTest.tokens[key].connect(deployer).transfer(mockRouter.address, ONE_18.mul(1_000_000))
             }
             await aaveTest.pool.connect(deployer).supply(aaveTest.tokens[key].address, ONE_18.mul(1000), deployer.address, 0)
+
         }
 
     })
@@ -55,7 +62,50 @@ describe('1fx Test', async () => {
     })
 
     it('deploys slot', async () => {
-        await factory.connect(alice).createSlot(alice.address)
+        const collatKey = 'DAI'
+        const debtKey = 'USDC'
+        const collateral = aaveTest.tokens[collatKey]
+        const debt = aaveTest.tokens[debtKey]
+        const aTokenCollateral = aaveTest.aTokens[collatKey]
+        const vTokenBorrow = aaveTest.vTokens[debtKey]
+        const amountCollateral = parseUnits('1', 18)
+        const targetCollateral = parseUnits('30', 18)
+        const amountBorrow = targetCollateral.mul(101).div(99)
+
+        // approve projected address
+        const addressToApprove = await factory.getAddress(1)
+        console.log("Slot", addressToApprove)
+        await collateral.connect(alice).approve(addressToApprove, ethers.constants.MaxUint256)
+
+        // function swap(address inAsset, address outAsset, uint256 inAm)
+        const params = mockRouter.interface.encodeFunctionData(
+            'swap',
+            [
+                debt.address,
+                collateral.address,
+                amountBorrow
+            ]
+        )
+
+        await factory.connect(alice).createSlot(
+            alice.address,
+            amountCollateral,
+            aTokenCollateral.address,
+            vTokenBorrow.address,
+            targetCollateral,
+            amountBorrow,
+            mockRouter.address,
+            params
+        )
+
+        const collateralPostTrade = await aTokenCollateral.balanceOf(addressToApprove)
+        const borrowPostTrade = await vTokenBorrow.balanceOf(addressToApprove)
+        console.log("Collateral", formatEther(collateralPostTrade))
+        console.log("Debt", formatEther(borrowPostTrade))
+        // validate collateral
+        expect(collateralPostTrade.gt(ONE_18.mul(31))).to.equal(true)
+        // validate debt
+        expect(borrowPostTrade.toString()).to.equal(amountBorrow.toString())
     })
 
 

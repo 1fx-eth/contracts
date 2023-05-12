@@ -283,6 +283,10 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
     await testEnv.configurator.configureReserveAsCollateral(td.address, 9000, 9050, 10010)
     
     await testEnv.configurator.setReserveStableRateBorrowing(td.address, true)
+
+    // enable flash loan
+    await testEnv.configurator.setReserveFlashLoaning(td.address, true)
+
     // set mock price
     await testEnv.oracle.setAssetPrice(td.address, ONE_18)
 

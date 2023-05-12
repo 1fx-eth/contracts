@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
+
 // pool and tokens
 import "../external-protocols/aave-v3-core/interfaces/IPool.sol";
 import "../external-protocols/aave-v3-core/interfaces/IAToken.sol";
@@ -34,7 +35,8 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
      * Initializes slot for aave Position
      * Deposits initial collateral, sets tokens and eMode
      */
-    function initializeAave(
+    function _initializeAndDeposit(
+        address _depositor,
         uint256 _amountCollateral,
         address _aTokenCollateral,
         address _vTokenBorrow
@@ -45,22 +47,22 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         address assetBorrow = IVariableDebtToken(vTokenBorrow).UNDERLYING_ASSET_ADDRESS();
 
         address pool = AAVE_POOL; // save gas
+        address oneInch = ONE_INCH; // save gas
 
         COLLATERAL = assetCollateral;
         BORROW = assetBorrow;
         A_COLLATERAL = aTokenCollateral;
         V_BORROW = _vTokenBorrow;
 
-        // transfer collateral from user
-        IERC20(assetCollateral).transferFrom(msg.sender, address(this), _amountCollateral);
-
         // approve for deposit and repayment
         IERC20(assetCollateral).approve(pool, type(uint256).max);
         IERC20(assetBorrow).approve(pool, type(uint256).max);
+        IERC20(assetCollateral).approve(oneInch, type(uint256).max);
+        IERC20(assetBorrow).approve(oneInch, type(uint256).max);
 
-        // deposit to aave
+        // transfer collateral from user and deposit to aave
+        IERC20(assetCollateral).transferFrom(_depositor, address(this), _amountCollateral);        
         IPool(pool).deposit(assetCollateral, _amountCollateral, address(this), 0);
-
         // check eMode -> has to match
         uint8 _eMode = validateEMode(assetCollateral, assetBorrow);
 
@@ -136,15 +138,14 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         return true;
     }
 
-    function openPosition(
-        uint256 targetCollateralAmount,
-        uint256 borrowAmount,
-        uint256,
-        address swapTarget,
-        bytes memory swapParams
+    function _openPosition(
+        uint256 _targetCollateralAmount,
+        uint256 _borrowAmount,
+        address _swapTarget,
+        bytes memory _swapParams
     ) internal {
-        bytes memory callData = abi.encode(swapTarget, swapParams, borrowAmount);
-        IPool(AAVE_POOL).flashLoanSimple(address(this), COLLATERAL, targetCollateralAmount, callData, 0);
+        bytes memory callData = abi.encode(_swapTarget, _swapParams, _borrowAmount);
+        IPool(AAVE_POOL).flashLoanSimple(address(this), COLLATERAL, _targetCollateralAmount, callData, 0);
     }
 
     function validateEMode(address asset0, address asset1) public view returns (uint8 eMode) {
