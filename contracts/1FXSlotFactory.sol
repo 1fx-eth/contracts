@@ -10,15 +10,14 @@ import "./utils/1FXProxy.sol";
 import "./1FXSlot.sol";
 
 /**
- * A sample factory contract for SimpleAccount
- * A UserOperations "initCode" holds the address of the factory, and a method call (to createAccount, in this sample factory).
- * The factory's createAccount returns the target account address even if it is already installed.
- * This way, the entryPoint.getSenderAddress() can be called either before or after the account is created.
+ * A sfactory to create minimal abstract accounts called "slots" that are used to hold isolated leveraged positions
+ * Designed to create the position in a single click using create2 - the user can approve the projected slot address or
+ * user ERC20Permit to open the position.
  */
 contract OneFXSlotFactory {
-    using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
     OneFXSlot public immutable accountImplementation;
-    mapping(address => EnumerableSet.UintSet) private _userPositions;
+    mapping(address => EnumerableSet.AddressSet) private _userPositions;
     uint256 public currentId;
 
     constructor(
@@ -30,10 +29,11 @@ contract OneFXSlotFactory {
     }
 
     /**
-     * create an account, and return its address.
-     * returns the address even if the account is already deployed.
-     * Note that during UserOperation execution, this method is called only if the account is not deployed.
-     * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
+     * create a slot
+     * - deposits collateral in collateral currency
+     * - opens a margin position by swapping borrow amount to collateral
+     * - users have to erc20-approve before the transaction can be executed 
+     *      - the address to be approve can be fetched with getNextAddress
      */
     function createSlot(
         address _owner,
@@ -61,7 +61,7 @@ contract OneFXSlotFactory {
                 _swapParams
         );
 
-        _userPositions[_owner].add(salt);
+        _userPositions[_owner].add(address(ret));
     }
 
         /**
@@ -94,7 +94,7 @@ contract OneFXSlotFactory {
                 _permit
         );
 
-        _userPositions[_permit.owner].add(salt);
+        _userPositions[_permit.owner].add(address(ret));
     }
 
     /**
@@ -106,5 +106,17 @@ contract OneFXSlotFactory {
                 bytes32(salt),
                 keccak256(abi.encodePacked(type(OneFXProxy).creationCode, abi.encode(address(accountImplementation))))
             );
+    }
+
+    function getNextAddress() public view returns (address) {
+        return
+            Create2.computeAddress(
+                bytes32(currentId + 1),
+                keccak256(abi.encodePacked(type(OneFXProxy).creationCode, abi.encode(address(accountImplementation))))
+            );
+    }
+
+    function getSlots(address _user) external view returns (address[] memory slots){
+        slots = _userPositions[_user].values();
     }
 }

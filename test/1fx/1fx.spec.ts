@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { BigNumber, constants } from 'ethers';
 import { formatEther, parseUnits } from 'ethers/lib/utils';
 import { ethers } from 'hardhat'
-import { EntryPoint, EntryPoint__factory, FiatWithPermit, MintableERC20, MockRouter, MockRouter__factory, OneFXSlotFactory, OneFXSlotFactory__factory, OneFXSlot__factory, WETH9 } from '../../types';
+import { EntryPoint, EntryPoint__factory, FiatWithPermit, MintableERC20, MockRouter, MockRouter__factory, OneFXLens, OneFXLens__factory, OneFXSlotFactory, OneFXSlotFactory__factory, OneFXSlot__factory, WETH9 } from '../../types';
 import { initializeMakeSuite, InterestRateMode, AAVEFixture } from './shared/aaveFixture';
 import { produceSig } from './shared/permitUtils';
 
@@ -19,6 +19,7 @@ describe('1fx Test', async () => {
     let factory: OneFXSlotFactory
     let entryPoint: EntryPoint
     let mockRouter: MockRouter
+    let lens: OneFXLens
 
     beforeEach('Deploy Aave', async () => {
         [deployer, alice, bob, carol] = await ethers.getSigners();
@@ -28,6 +29,7 @@ describe('1fx Test', async () => {
 
         aaveTest = await initializeMakeSuite(deployer)
         factory = await new OneFXSlotFactory__factory(deployer).deploy(entryPoint.address, aaveTest.pool.address, mockRouter.address)
+        lens = await new OneFXLens__factory(deployer).deploy()
         tokens = Object.values(aaveTest.tokens)
 
         // adds liquidity to the protocol
@@ -210,6 +212,67 @@ describe('1fx Test', async () => {
         expect(collateralPostTrade.gt(ONE_18.mul(31))).to.equal(true)
         // validate debt
         expect(borrowPostTrade.toString()).to.equal(amountBorrow.toString())
+
+
+        const slots = await lens.getUserSlots(alice.address, factory.address, aaveTest.pool.address)
+
+        console.log(slots[0].totalCollateralBase.toString(), slots[0].totalDebtBase.toString())
+    })
+
+
+    it('deploys slots with permit - lens shows data', async () => {
+        const collatKey = 'DAI'
+        const debtKey = 'USDC'
+        const collateral = aaveTest.tokens[collatKey]
+        const debt = aaveTest.tokens[debtKey]
+        const aTokenCollateral = aaveTest.aTokens[collatKey]
+        const vTokenBorrow = aaveTest.vTokens[debtKey]
+        const amountCollateral = parseUnits('1', 18)
+        const targetCollateral = parseUnits('30', 18)
+
+        // this time the router sends less
+        await mockRouter.connect(deployer).setRate(ONE_18.mul(95).div(100))
+
+        const amountBorrow = targetCollateral.mul(107).div(100)
+
+        // approve projected address
+        const addressToApprove = await factory.getAddress(1)
+        console.log("Slot", addressToApprove)
+        await collateral.connect(alice).approve(addressToApprove, ethers.constants.MaxUint256)
+
+        // function swap(address inAsset, address outAsset, uint256 inAm)
+        const params = mockRouter.interface.encodeFunctionData(
+            'swap',
+            [
+                debt.address,
+                collateral.address,
+                amountBorrow
+            ]
+        )
+        const sigVRS = await produceSig(alice, bob.address, collateral as FiatWithPermit, amountCollateral.toString())
+
+        const sig = {
+            owner: alice.address,
+            spender: bob.address,
+            value: amountCollateral,
+            deadline: ethers.constants.MaxUint256,
+            v: sigVRS.split.v,
+            r: sigVRS.split.r,
+            s: sigVRS.split.s
+        }
+
+        await factory.connect(bob).createSlotWithPermit(
+            aTokenCollateral.address,
+            vTokenBorrow.address,
+            targetCollateral,
+            amountBorrow,
+            params,
+            sig
+        )
+
+        const slots = await lens.getUserSlots(alice.address, factory.address, aaveTest.pool.address)
+
+        expect(slots.length).to.be.greaterThan(0)
     })
 
 

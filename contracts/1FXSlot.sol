@@ -105,7 +105,7 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
         uint256 _targetRepayAmount,
         uint256 _targetWithdrawAmount,
         bytes calldata _swapParams
-    ) public virtual {
+    ) public virtual onlyOwner {
         // flash loan and swap
         _closePosition(_targetRepayAmount, _targetWithdrawAmount, _swapParams);
     }
@@ -115,7 +115,7 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
      * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
      * the implementation by calling `upgradeTo()`
      */
-    function closeFullPosition(bytes calldata _swapParams) public virtual {
+    function closeFullPosition(bytes calldata _swapParams) public virtual onlyOwner {
         // flash loan and swap
         _closeFullPosition(_swapParams);
     }

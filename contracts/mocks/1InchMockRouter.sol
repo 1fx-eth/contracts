@@ -22,4 +22,8 @@ contract MockRouter {
         outAm = (inAm * rate) / 1e18;
         IERC20(outAsset).transfer(msg.sender, outAm);
     }
+
+    function setRate(uint256 _rate) external {
+        rate = _rate;
+    }
 }

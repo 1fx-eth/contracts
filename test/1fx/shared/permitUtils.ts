@@ -87,6 +87,15 @@ export const Sign = async (
     return { signature: digest, split: { v, r, s } }
 }
 
+
+/**
+ * Produces signature for ERC20Permit using the signer object
+ * @param provider ethers signer to sign message
+ * @param spender speder permit params
+ * @param token token to sign
+ * @param amount amount to sign for
+ * @returns 
+ */
 export const produceSig = async (
     provider: SignerWithAddress,
     spender: string,
@@ -126,8 +135,5 @@ export const produceSig = async (
     const signature = await provider._signTypedData(domain, { Permit: rawData.types.Permit }, rawData.message)
 
     const split = splitSignature(signature)
-    const data = JSON.stringify(rawData)
-    console.log("Data", data)
-    console.log("Signature", signature)
     return { signature, split }
 }
