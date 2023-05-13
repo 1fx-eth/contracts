@@ -10,6 +10,8 @@ import "../external-protocols/aave-v3-core/protocol/libraries/configuration/Rese
 // flash loan implementation
 import "../interfaces/IFlashLoanReceiverAave.sol";
 
+import "../external-protocols/openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
+
 /**
  * sets up Aave such that all operations can be conducted
  */
@@ -62,6 +64,66 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         // transfer collateral from user and deposit to aave
         IERC20(assetCollateral).transferFrom(_depositor, address(this), _amountCollateral);
         IPool(pool).deposit(assetCollateral, _amountCollateral, address(this), 0);
+        // check eMode -> has to match
+        uint8 _eMode = validateEMode(assetCollateral, assetBorrow);
+
+        // configure collateral
+        IPool(pool).setUserUseReserveAsCollateral(assetCollateral, true);
+        IPool(pool).setUserEMode(_eMode);
+    }
+
+
+    struct PermitParams {
+        address owner;
+        address spender;
+        uint256 value;
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    /**
+     * Initializes slot for aave Position
+     * Deposits initial collateral, sets tokens and eMode
+     */
+    function _initializeAndDepositWithPermit(
+        address _aTokenCollateral,
+        address _vTokenBorrow,
+        PermitParams calldata permit
+    ) internal {
+        address aTokenCollateral = _aTokenCollateral;
+        address vTokenBorrow = _vTokenBorrow;
+        address assetCollateral = IAToken(_aTokenCollateral).UNDERLYING_ASSET_ADDRESS();
+        address assetBorrow = IVariableDebtToken(vTokenBorrow).UNDERLYING_ASSET_ADDRESS();
+
+        address pool = AAVE_POOL; // save gas
+        address oneInch = ONE_INCH; // save gas
+
+        COLLATERAL = assetCollateral;
+        BORROW = assetBorrow;
+        A_COLLATERAL = aTokenCollateral;
+        V_BORROW = _vTokenBorrow;
+
+        // approve for deposit and repayment
+        IERC20(assetCollateral).approve(pool, type(uint256).max);
+        IERC20(assetBorrow).approve(pool, type(uint256).max);
+        IERC20(assetCollateral).approve(oneInch, type(uint256).max);
+        IERC20(assetBorrow).approve(oneInch, type(uint256).max);
+
+        IERC20Permit(assetCollateral).permit(
+            permit.owner,
+            permit.spender,
+            permit.value,
+            permit.deadline,
+            permit.v,
+            permit.r,
+            permit.s
+        );
+
+        // transfer collateral from user and deposit to aave
+        IERC20(assetCollateral).transferFrom(permit.owner, address(this), permit.value);
+        IPool(pool).deposit(assetCollateral, permit.value, address(this), 0);
         // check eMode -> has to match
         uint8 _eMode = validateEMode(assetCollateral, assetBorrow);
 

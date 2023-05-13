@@ -1,7 +1,7 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { BigNumber, constants } from 'ethers';
 import { ethers } from 'hardhat'
-import { MintableERC20, WETH9 } from '../../types';
+import { ERC20, FiatWithPermit, MintableERC20, WETH9 } from '../../types';
 import { initializeMakeSuite, InterestRateMode, AAVEFixture } from '../1fx/shared/aaveFixture';
 
 const ONE_18 = BigNumber.from(10).pow(18)
@@ -12,7 +12,7 @@ const ONE_18 = BigNumber.from(10).pow(18)
 describe('AAVE setup', async () => {
     let deployer: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress, carol: SignerWithAddress;
     let aaveTest: AAVEFixture
-    let tokens: (MintableERC20 | WETH9)[];
+    let tokens: (MintableERC20 | WETH9 | FiatWithPermit)[];
 
     beforeEach('Deploy AAVE', async () => {
         [deployer, alice, bob, carol] = await ethers.getSigners();
@@ -28,7 +28,8 @@ describe('AAVE setup', async () => {
             if (key === "WETH") {
                 await (aaveTest.tokens[key] as WETH9).deposit({ value: ONE_18.mul(1000) })
             } else {
-                await (aaveTest.tokens[key] as MintableERC20)['mint(address,uint256)'](deployer.address, ONE_18.mul(1_000_000))
+                await (aaveTest.tokens[key] as MintableERC20)['mint(address,uint256)'](deployer.address, ONE_18.mul(10_000_000))
+                await aaveTest.tokens[key].connect(deployer).transfer(alice.address, ONE_18.mul(1_000_000))
             }
             await aaveTest.pool.connect(deployer).supply(aaveTest.tokens[key].address, ONE_18.mul(1000), deployer.address, 0)
         }
@@ -38,7 +39,6 @@ describe('AAVE setup', async () => {
     it('deploys everything', async () => {
         await aaveTest.aDai.symbol()
         const { WETH, DAI } = aaveTest.tokens
-        await (DAI as MintableERC20).connect(alice)['mint(address,uint256)'](alice.address, ONE_18.mul(1_000))
         await DAI.connect(alice).approve(aaveTest.pool.address, constants.MaxUint256)
 
         // supply and borrow

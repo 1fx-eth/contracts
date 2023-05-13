@@ -37,7 +37,9 @@ import {
   VariableDebtToken,
   VariableDebtToken__factory,
   WETH9,
-  WETH9Mocked__factory
+  WETH9Mocked__factory,
+  FiatWithPermit__factory,
+  FiatWithPermit
 } from '../../../types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
@@ -58,18 +60,18 @@ export interface AAVEFixture {
   helpersContract: AaveProtocolDataProvider;
   weth: WETH9Mocked;
   aWETH: AToken;
-  dai: MintableERC20;
+  dai: MintableERC20 | FiatWithPermit;
   aDai: AToken;
   aAave: AToken;
   variableDebtDai: VariableDebtToken;
   stableDebtDai: StableDebtToken;
   aUsdc: AToken;
-  usdc: MintableERC20;
-  aave: MintableERC20;
+  usdc: MintableERC20 | FiatWithPermit;
+  aave: MintableERC20 | FiatWithPermit;
   addressesProvider: PoolAddressesProvider;
   registry: PoolAddressesProviderRegistry;
   aclManager: ACLManager;
-  tokens: { [s: string]: MintableERC20 | WETH9 };
+  tokens: { [s: string]: MintableERC20 | FiatWithPermit | WETH9 };
   aTokens: { [a: string]: AToken }
   sTokens: { [a: string]: StableDebtToken }
   vTokens: { [a: string]: VariableDebtToken }
@@ -88,17 +90,17 @@ const testEnv: AAVEFixture = {
   aaveOracle: {} as AaveOracle,
   weth: {} as WETH9Mocked,
   aWETH: {} as AToken,
-  dai: {} as MintableERC20,
+  dai: {} as MintableERC20 | FiatWithPermit,
   aDai: {} as AToken,
   variableDebtDai: {} as VariableDebtToken,
   stableDebtDai: {} as StableDebtToken,
   aUsdc: {} as AToken,
-  usdc: {} as MintableERC20,
-  aave: {} as MintableERC20,
+  usdc: {} as MintableERC20 | FiatWithPermit,
+  aave: {} as MintableERC20 | FiatWithPermit,
   addressesProvider: {} as PoolAddressesProvider,
   registry: {} as PoolAddressesProviderRegistry,
   aclManager: {} as ACLManager,
-  tokens: {} as { [s: string]: MintableERC20 | WETH9 },
+  tokens: {} as { [s: string]: MintableERC20 | FiatWithPermit | WETH9 },
   aTokens: {} as { [a: string]: AToken },
   sTokens: {} as { [a: string]: StableDebtToken },
   vTokens: {} as { [a: string]: VariableDebtToken },
@@ -131,7 +133,7 @@ export enum InterestRateMode {
 export async function initializeMakeSuite(_deployer: SignerWithAddress, scenarion = 0) {
 
   const tokenData = scenarion === 0 ? _tokenData : _tokenDataExtend
-  let tokens: { [s: string]: MintableERC20 | WETH9 } = {}
+  let tokens: { [s: string]: MintableERC20 | WETH9 | FiatWithPermit } = {}
 
   // deploy tokens
   for (let i = 0; i < tokenData.length; i++) {
@@ -139,7 +141,7 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
     if (td.symbol === "WETH")
       tokens[td.symbol] = await new WETH9Mocked__factory(_deployer).deploy()
     else
-      tokens[td.symbol] = await new MintableERC20__factory(_deployer).deploy(td.name, td.symbol, td.decimals)
+      tokens[td.symbol] = await new FiatWithPermit__factory(_deployer).deploy(td.name, td.symbol, td.decimals)
   }
 
   // deployrer becomes ultra admin
@@ -281,7 +283,7 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
     await testEnv.configurator.setReserveActive(td.address, true)
     await testEnv.configurator.setReserveBorrowing(td.address, true)
     await testEnv.configurator.configureReserveAsCollateral(td.address, 9000, 9050, 10010)
-    
+
     await testEnv.configurator.setReserveStableRateBorrowing(td.address, true)
 
     // enable flash loan
@@ -290,8 +292,8 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
     // set mock price
     await testEnv.oracle.setAssetPrice(td.address, ONE_18)
 
-    if(tfd.emode){
-      await testEnv.configurator.setAssetEModeCategory(td.address,1)
+    if (tfd.emode) {
+      await testEnv.configurator.setAssetEModeCategory(td.address, 1)
     }
   }
 
@@ -302,9 +304,9 @@ export async function initializeMakeSuite(_deployer: SignerWithAddress, scenario
   testEnv.aWETH = aTokens["WETH"] as AToken
   testEnv.aAave = aTokens["AAVE"] as AToken
 
-  testEnv.dai = tokens["DAI"] as MintableERC20
-  testEnv.aave = tokens["AAVE"] as MintableERC20
-  testEnv.usdc = tokens["USDC"] as MintableERC20
+  testEnv.dai = tokens["DAI"] as FiatWithPermit
+  testEnv.aave = tokens["AAVE"] as FiatWithPermit
+  testEnv.usdc = tokens["USDC"] as FiatWithPermit
   testEnv.weth = tokens["WETH"] as WETH9Mocked
 
 

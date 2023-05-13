@@ -47,8 +47,7 @@ contract OneFXSlotFactory {
     ) public returns (OneFXSlot ret) {
         uint256 salt = ++currentId;
         address addr = getAddress(salt);
-        uint256 codeSize = addr.code.length;
-        if (codeSize > 0) {
+        if (addr.code.length > 0) {
             return OneFXSlot(payable(addr));
         }
         ret = OneFXSlot(payable(new OneFXProxy{salt: bytes32(salt)}(address(accountImplementation))));
@@ -64,7 +63,42 @@ contract OneFXSlotFactory {
                 _swapParams
         );
 
-        // _userPositions[_owner].add(salt);
+        _userPositions[_owner].add(salt);
+    }
+
+        /**
+     * create an account, and return its address.
+     * returns the address even if the account is already deployed.
+     * Note that during UserOperation execution, this method is called only if the account is not deployed.
+     * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
+     */
+    function createSlotWithPermit(
+        address _aTokenCollateral,
+        address _vTokenBorrow,
+        uint256 _targetCollateralAmount,
+        uint256 _borrowAmount,
+        address _swapTarget,
+        bytes calldata _swapParams,
+        OneFXSlot.PermitParams calldata _permit
+    ) public returns (OneFXSlot ret) {
+        uint256 salt = ++currentId;
+        address addr = getAddress(salt);
+        if (addr.code.length > 0) {
+            return OneFXSlot(payable(addr));
+        }
+        ret = OneFXSlot(payable(new OneFXProxy{salt: bytes32(salt)}(address(accountImplementation))));
+
+        ret.initializeWithPermit(
+                _aTokenCollateral,
+                _vTokenBorrow,
+                _targetCollateralAmount,
+                _borrowAmount,
+                _swapTarget,
+                _swapParams,
+                _permit
+        );
+
+        _userPositions[_permit.owner].add(salt);
     }
 
     /**
