@@ -1,7 +1,7 @@
 import '@nomiclabs/hardhat-ethers'
 import { parseUnits } from 'ethers/lib/utils';
 import hre from 'hardhat'
-import { FiatWithPermit__factory, OneFXLens__factory, OneFXSlotFactory__factory } from '../types';
+import { ERC20Mock__factory, FiatWithPermit__factory, OneFXLens__factory, OneFXSlotFactory__factory } from '../types';
 import { coreAddresses } from './1FXAddresses';
 import { AGEUR_USDC, USDC_AGEUR, USDT_USDC, USDT_USDC_5 } from './1inchResponses';
 import { addressesAaveATokens, addressesAaveVTokens, addressesTokens } from './aave_addresses';
@@ -11,7 +11,7 @@ import axios from 'axios'
 async function fetchData(url: string) {
     try {
         const response = await axios.get(url);
-        console.log("response", response)
+        console.log("response", response.data)
         return response.data
     } catch (error) {
         console.log(error);
@@ -33,47 +33,50 @@ async function main() {
     const collateralKey = 'USDC'
     const debtKey = 'USDT'
 
-    console.log('Lens')
-    const lens = await new OneFXLens__factory(operator).attach(coreAddresses.lens[chainId])
-
     const collateralAddress = (addressesTokens[collateralKey] as any)[chainId]
     const collateralATokenAddress = (addressesAaveATokens[collateralKey] as any)[chainId]
 
     const debtAddress = (addressesTokens[debtKey] as any)[chainId]
     const debtVTokenAddress = (addressesAaveVTokens[debtKey] as any)[chainId]
 
-    const collateral = await new FiatWithPermit__factory(operator).attach(collateralAddress)
-    const amountCollateral = parseUnits('1', 6)
+    const collateralToken = await new FiatWithPermit__factory(operator).attach(collateralAddress)
 
+    // amount to borrow
+    const borrowBase = '10'
 
-    const borrowBase = '15'
+    const borrowToken = await new ERC20Mock__factory(operator).attach(debtAddress)
 
+    const borrowDecimals = await borrowToken.decimals()
+    const collateralDecimals = await collateralToken.decimals()
 
-    const targetCollateral = parseUnits(borrowBase, 6).mul(99).div(100)
+    // amount parameters
+    const depositAmount = parseUnits('1', collateralDecimals)
+    const targetCollateral = parseUnits(borrowBase, collateralDecimals).mul(99).div(100)
+    const swapAmount = parseUnits(borrowBase, borrowDecimals)
+    const amountBorrow = swapAmount.mul(105).div(100)
 
-    const amountBorrow = parseUnits(borrowBase, 6).mul(101).div(100)
+    // calulate slot address
     const projectedAddress = await factory.getNextAddress()
+    console.log("Projected address", projectedAddress)
 
+    const slippage = 45
     const USDC_USDT_LIVE: any = await fetchData(
-        `https://api.1inch.io/v5.0/137/swap?fromTokenAddress=${debtAddress}&toTokenAddress=${collateralAddress}&amount=${amountBorrow.toString()}&fromAddress=${projectedAddress}&slippage=1&destReceiver=${projectedAddress}&referrerAddress=${projectedAddress}&disableEstimate=true&compatibilityMode=true&burnChi=false&allowPartialFill=false&complexityLevel=0`
+        `https://api.1inch.io/v5.0/137/swap?fromTokenAddress=${debtAddress}&toTokenAddress=${collateralAddress}&amount=${swapAmount.toString()}&fromAddress=${projectedAddress}&slippage=${slippage}&destReceiver=${projectedAddress}&referrerAddress=${projectedAddress}&disableEstimate=true&compatibilityMode=true&burnChi=false&allowPartialFill=false&complexityLevel=0`
     )
 
-
-
-    console.log("Projected address", projectedAddress)
-    const allowance = await collateral.allowance(operator.address, projectedAddress)
-    console.log("Allowance on ", collateral.address, allowance.toString())
+    const allowance = await collateralToken.allowance(operator.address, projectedAddress)
+    console.log("Allowance on ", collateralToken.address, allowance.toString())
     // approve
-    // if (allowance.gte(amountCollateral)) {
+    if (allowance.lte(depositAmount)) {
         console.log("Approving")
-        const approveTx = await collateral.approve(projectedAddress, parseUnits(borrowBase, 6))
+        const approveTx = await collateralToken.approve(projectedAddress, depositAmount)
         await approveTx.wait()
         console.log("Approval done")
-    // }
+    }
 
     await factory.connect(operator).estimateGas.createSlot(
         operator.address,
-        amountCollateral,
+        depositAmount,
         collateralATokenAddress,
         debtVTokenAddress,
         targetCollateral,
@@ -83,7 +86,7 @@ async function main() {
 
     await factory.connect(operator).createSlot(
         operator.address,
-        amountCollateral,
+        depositAmount,
         collateralATokenAddress,
         debtVTokenAddress,
         targetCollateral,
