@@ -14,6 +14,18 @@ import "../external-protocols/openzeppelin/token/ERC20/extensions/IERC20Permit.s
 
 /**
  * sets up Aave such that all operations can be conducted
+ * - opening a position
+ *      - flash loan collateral
+ *      - deposit collateral
+ *      - borrow required funds (precalculated, approximate)
+ *      - swap the borrowed funds to the currenxy borrowed in the flash loan
+ *      - repay flash loan
+ * - closing a position
+ *      - flash loan borrow amount to be repaid
+ *      - repay obtained funds
+ *      - withdraw precomputed collateral amount
+ *      - swap the withdrawn amount to the borrow (& flash loan) currency
+ *      - repay flash loan
  */
 contract AaveHandler is IFlashLoanSimpleReceiver {
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
