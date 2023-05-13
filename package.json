@@ -84,6 +84,7 @@
     "@types/lodash": "^4.14.177",
     "@uniswap/lib": "^4.0.1-alpha",
     "@uniswap/v2-core": "1.0.1",
+    "axios": "^1.4.0",
     "base64-sol": "1.0.1",
     "decimal.js": "^10.3.1",
     "ethereum-waffle": "^3.0.0",
