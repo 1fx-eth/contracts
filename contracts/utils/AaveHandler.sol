@@ -27,6 +27,9 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
     address public A_COLLATERAL;
     address public V_BORROW;
 
+    // owner
+    address public OWNER;
+
     constructor(address _aavePool, address _1inchRouter) {
         AAVE_POOL = _aavePool;
         ONE_INCH = _1inchRouter;
@@ -70,8 +73,10 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         // configure collateral
         IPool(pool).setUserUseReserveAsCollateral(assetCollateral, true);
         IPool(pool).setUserEMode(_eMode);
-    }
 
+        // set owner
+        OWNER = _depositor;
+    }
 
     struct PermitParams {
         address owner;
@@ -111,15 +116,7 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         IERC20(assetCollateral).approve(oneInch, type(uint256).max);
         IERC20(assetBorrow).approve(oneInch, type(uint256).max);
 
-        IERC20Permit(assetCollateral).permit(
-            permit.owner,
-            permit.spender,
-            permit.value,
-            permit.deadline,
-            permit.v,
-            permit.r,
-            permit.s
-        );
+        IERC20Permit(assetCollateral).permit(permit.owner, permit.spender, permit.value, permit.deadline, permit.v, permit.r, permit.s);
 
         // transfer collateral from user and deposit to aave
         IERC20(assetCollateral).transferFrom(permit.owner, address(this), permit.value);
@@ -156,7 +153,7 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
 
     // Flash loan call to open leveraged position
     function executeOperation(
-        address,
+        address asset,
         uint256 amount,
         uint256 premium,
         address initiator,
@@ -166,50 +163,85 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         require(initiator == address(this), "INVALID INITIATOR");
         address pool = AAVE_POOL;
         address collateral = COLLATERAL;
+        if (asset == collateral) {
+            // decode params
+            (bytes memory data, uint256 borrowAmount) = abi.decode(params, (bytes, uint256));
 
-        // decode params
-        (address target, bytes memory data, uint256 borrowAmount) = abi.decode(params, (address, bytes, uint256));
+            // deposit flashed reserve
+            IPool(pool).deposit(collateral, amount, address(this), 0);
 
-        // deposit flashed reserve
-        IPool(pool).deposit(collateral, amount, address(this), 0);
+            // borrow target funds
+            IPool(pool).borrow(BORROW, borrowAmount, 2, 0, address(this));
 
-        // borrow target funds
-        IPool(pool).borrow(BORROW, borrowAmount, 2, 0, address(this));
+            // execute and check swap
+            (bool success, bytes memory result) = ONE_INCH.call(data);
+            require(success, "SWAP FAILED");
 
-        // execute and check swap
-        (bool success, bytes memory result) = target.call(data);
-        require(success, "SWAP FAILED");
+            // decode amount received
+            uint256 amountReceived = abi.decode(result, (uint256));
+            uint256 amountToReturn = amount + premium;
 
-        // decode amount received
-        uint256 amountReceived = abi.decode(result, (uint256));
-        uint256 amountToReturn = amount + premium;
+            // validate that the repayment can be moved forward with
+            require(amountReceived >= amountToReturn, "INSUFFICIENT FLASH REPAY BALLANCE");
 
-        // validate that the repayment can be moved forward with
-        require(amountReceived >= amountToReturn, "INSUFFICIENT REPAY BALLANCE");
+            // collect dust
+            uint256 dust;
+            unchecked {
+                dust = amountReceived - amountToReturn;
+            }
 
-        // collect dust
-        uint256 dust;
-        unchecked {
-            dust = amountReceived - amountToReturn;
+            // deposit dust
+            if (dust > 0) IPool(pool).deposit(collateral, dust, address(this), 0);
+        } else {
+            // decode params - target withdraw has to be sufficient such that the funds can be repaid
+            (bytes memory data, uint256 targetWithdraw) = abi.decode(params, (bytes, uint256));
+
+            // repay flashed reserve
+            IPool(pool).repay(asset, amount, 2, address(this));
+
+            // withdraw funds dust
+            IPool(pool).withdraw(collateral, targetWithdraw, OWNER);
+
+            // execute and check swap
+            (bool success, bytes memory result) = ONE_INCH.call(data);
+            require(success, "SWAP FAILED");
+
+            // decode amount received
+            uint256 amountReceived = abi.decode(result, (uint256));
+            uint256 amountToReturn = amount + premium;
+
+            // validate that the repayment can be moved forward with
+            require(amountReceived >= amountToReturn, "INSUFFICIENT REPAY BALLANCE");
+
+            // collect dust
+            uint256 dust;
+            unchecked {
+                dust = amountReceived - amountToReturn;
+            }
+
+            // transfer leftovers to user
+            IERC20(BORROW).transfer(OWNER, dust);
+
+            // return excess collateral if any
+            uint256 balance = IERC20(collateral).balanceOf(address(this));
+            if (balance > 0) IERC20(collateral).transfer(OWNER, balance);
         }
-
-        // deposit dust
-        if (dust > 0) IPool(pool).deposit(collateral, dust, address(this), 0);
-
         return true;
     }
 
     function _openPosition(
         uint256 _targetCollateralAmount,
         uint256 _borrowAmount,
-        address _swapTarget,
         bytes memory _swapParams
     ) internal {
-        bytes memory callData = abi.encode(_swapTarget, _swapParams, _borrowAmount);
+        bytes memory callData = abi.encode(_swapParams, _borrowAmount);
         IPool(AAVE_POOL).flashLoanSimple(address(this), COLLATERAL, _targetCollateralAmount, callData, 0);
     }
 
-    function _closePosition() internal {}
+    function _closePosition(uint256 _targetRepayAmount, bytes memory _swapParams) internal {
+        bytes memory callData = abi.encode(_swapParams, _targetRepayAmount);
+        IPool(AAVE_POOL).flashLoanSimple(address(this), BORROW, _targetRepayAmount, callData, 0);
+    }
 
     function validateEMode(address asset0, address asset1) public view returns (uint8 eMode) {
         eMode = getEMode(asset0);

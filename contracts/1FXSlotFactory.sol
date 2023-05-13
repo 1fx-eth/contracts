@@ -42,7 +42,6 @@ contract OneFXSlotFactory {
         address _vTokenBorrow,
         uint256 _targetCollateralAmount,
         uint256 _borrowAmount,
-        address _swapTarget,
         bytes calldata _swapParams
     ) public returns (OneFXSlot ret) {
         uint256 salt = ++currentId;
@@ -59,7 +58,6 @@ contract OneFXSlotFactory {
                 _vTokenBorrow,
                 _targetCollateralAmount,
                 _borrowAmount,
-                _swapTarget,
                 _swapParams
         );
 
@@ -77,7 +75,6 @@ contract OneFXSlotFactory {
         address _vTokenBorrow,
         uint256 _targetCollateralAmount,
         uint256 _borrowAmount,
-        address _swapTarget,
         bytes calldata _swapParams,
         OneFXSlot.PermitParams calldata _permit
     ) public returns (OneFXSlot ret) {
@@ -93,7 +90,6 @@ contract OneFXSlotFactory {
                 _vTokenBorrow,
                 _targetCollateralAmount,
                 _borrowAmount,
-                _swapTarget,
                 _swapParams,
                 _permit
         );

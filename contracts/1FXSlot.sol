@@ -22,8 +22,6 @@ import "./utils/AaveHandler.sol";
 contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
     using ECDSA for bytes32;
 
-    address public owner;
-
     IEntryPoint private immutable _entryPoint;
 
     event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
@@ -52,7 +50,7 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
 
     function _onlyOwner() internal view {
         //directly from EOA owner, or through the account itself (which gets redirected through execute())
-        require(msg.sender == owner || msg.sender == address(this), "only owner");
+        require(msg.sender == OWNER || msg.sender == address(this), "only owner");
     }
 
     /**
@@ -90,15 +88,22 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
         address _vTokenBorrow,
         uint256 _targetCollateralAmount,
         uint256 _borrowAmount,
-        address _swapTarget,
         bytes calldata _swapParams
     ) public virtual initializer {
-        // set owner
-        _initialize(_owner);
         // init aave data and deposit
         _initializeAndDeposit(_owner, _amountCollateral, _aTokenCollateral, _vTokenBorrow);
         // flash loan and swap
-        _openPosition(_targetCollateralAmount, _borrowAmount, _swapTarget, _swapParams);
+        _openPosition(_targetCollateralAmount, _borrowAmount, _swapParams);
+    }
+
+    /**
+     * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
+     * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
+     * the implementation by calling `upgradeTo()`
+     */
+    function close(uint256 _targetRepayAmount, bytes calldata _swapParams) public virtual {
+        // flash loan and swap
+        _closePosition(_targetRepayAmount, _swapParams);
     }
 
     /**
@@ -111,32 +116,24 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
         address _vTokenBorrow,
         uint256 _targetCollateralAmount,
         uint256 _borrowAmount,
-        address _swapTarget,
         bytes calldata _swapParams,
         PermitParams calldata _permit
     ) public virtual initializer {
-        // set owner
-        _initialize(_permit.owner);
         // init aave data and deposit
         _initializeAndDepositWithPermit(_aTokenCollateral, _vTokenBorrow, _permit);
         // flash loan and swap
-        _openPosition(_targetCollateralAmount, _borrowAmount, _swapTarget, _swapParams);
-    }
-
-    function _initialize(address _owner) internal virtual {
-        owner = _owner;
-        emit SimpleAccountInitialized(_entryPoint, owner);
+        _openPosition(_targetCollateralAmount, _borrowAmount, _swapParams);
     }
 
     // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrOwner() internal view {
-        require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
+        require(msg.sender == address(entryPoint()) || msg.sender == OWNER, "account: not Owner or EntryPoint");
     }
 
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash) internal virtual override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
-        if (owner != hash.recover(userOp.signature)) return SIG_VALIDATION_FAILED;
+        if (OWNER != hash.recover(userOp.signature)) return SIG_VALIDATION_FAILED;
         return 0;
     }
 
