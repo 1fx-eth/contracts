@@ -3,7 +3,9 @@
 pragma solidity ^0.8.0;
 
 import "../interfaces/I1FXFactory.sol";
+import "../external-protocols/aave-v3-core/interfaces/IPool.sol";
 import "../interfaces/I1FXSlot.sol";
+import "../external-protocols/aave-v3-core/protocol/libraries/configuration/ReserveConfiguration.sol";
 
 struct AaveUserData {
     uint256 totalCollateralBase;
@@ -18,6 +20,8 @@ struct AaveUserData {
  * View contract for slots on the factory
  */
 contract OneFXLens {
+    using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+
     struct SlotData {
         address slot;
         address owner;
@@ -76,10 +80,44 @@ contract OneFXLens {
             data.healthFactor
         ) = IAavePool(_pool).getUserAccountData(_user);
     }
+
+    struct ConfigData {
+        address asset;
+        string symbol;
+        uint256 eMode;
+        uint256 ltv;
+        uint256 liquidationThreshold;
+        uint256 liquidationBonus;
+        bool siloedBorrowing;
+        bool flashLoanEnabled;
+    }
+
+    function getConfig(address asset, address _aavePool) public view returns (ConfigData memory data) {
+        DataTypes.ReserveConfigurationMap memory config = IPool(_aavePool).getConfiguration(asset);
+        data.symbol = IERC20Base(asset).symbol();
+        data.asset = asset;
+        data.eMode = config.getEModeCategory();
+        data.ltv = config.getLtv();
+        data.liquidationThreshold = config.getLiquidationThreshold();
+        data.liquidationBonus = config.getLiquidationBonus();
+        data.siloedBorrowing = config.getSiloedBorrowing();
+        data.flashLoanEnabled = config.getFlashLoanEnabled();
+    }
+
+    function getConfigs(address[] memory assets, address _aavePool) external view returns (ConfigData[] memory data) {
+        uint256 length = assets.length;
+        data = new ConfigData[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            data[i] = getConfig(assets[i], _aavePool);
+        }
+    }
 }
 
 interface IERC20Base {
     function decimals() external view returns (uint8);
+
+    function symbol() external view returns (string memory);
 }
 
 interface IAavePool {
