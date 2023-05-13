@@ -31,7 +31,7 @@ async function main() {
 
 
     const collateralKey = 'USDC'
-    const debtKey = 'USDT'
+    const debtKey = 'EURS'
 
     const collateralAddress = (addressesTokens[collateralKey] as any)[chainId]
     const collateralATokenAddress = (addressesAaveATokens[collateralKey] as any)[chainId]
@@ -42,7 +42,7 @@ async function main() {
     const collateralToken = await new FiatWithPermit__factory(operator).attach(collateralAddress)
 
     // amount to borrow
-    const borrowBase = '10'
+    const borrowBase = '7'
 
     const borrowToken = await new ERC20Mock__factory(operator).attach(debtAddress)
 
@@ -53,7 +53,7 @@ async function main() {
     const depositAmount = parseUnits('1', collateralDecimals)
     const targetCollateral = parseUnits(borrowBase, collateralDecimals).mul(99).div(100)
     const swapAmount = parseUnits(borrowBase, borrowDecimals)
-    const amountBorrow = swapAmount.mul(105).div(100)
+    const amountBorrow = swapAmount
 
     // calulate slot address
     const projectedAddress = await factory.getNextAddress()
@@ -69,7 +69,7 @@ async function main() {
     // approve
     if (allowance.lte(depositAmount)) {
         console.log("Approving")
-        const approveTx = await collateralToken.approve(projectedAddress, depositAmount)
+        const approveTx = await collateralToken.connect(operator).approve(projectedAddress, depositAmount)
         await approveTx.wait()
         console.log("Approval done")
     }
