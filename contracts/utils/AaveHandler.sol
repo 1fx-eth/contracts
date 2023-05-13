@@ -7,7 +7,7 @@ import "../external-protocols/aave-v3-core/interfaces/IAToken.sol";
 import "../external-protocols/aave-v3-core/interfaces/IVariableDebtToken.sol";
 import "../external-protocols/aave-v3-core/protocol/libraries/configuration/ReserveConfiguration.sol";
 
-// flash loan implementation
+// flash loan interface
 import "../interfaces/IFlashLoanReceiverAave.sol";
 
 import "../external-protocols/openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
