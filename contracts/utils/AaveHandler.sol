@@ -211,7 +211,7 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
             uint256 amountToReturn = amount + premium;
 
             // validate that the repayment can be moved forward with
-            require(amountReceived >= amountToReturn, "INSUFFICIENT REPAY BALLANCE");
+            require(amountReceived >= amountToReturn, "INSUFFICIENT FLASH REPAY BALLANCE");
 
             // collect dust
             uint256 dust;
@@ -220,7 +220,7 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
             }
 
             // transfer leftovers to user
-            IERC20(BORROW).transfer(OWNER, dust);
+            IERC20(asset).transfer(OWNER, dust);
 
             // return excess collateral if any
             uint256 balance = IERC20(collateral).balanceOf(address(this));
@@ -238,9 +238,18 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
         IPool(AAVE_POOL).flashLoanSimple(address(this), COLLATERAL, _targetCollateralAmount, callData, 0);
     }
 
-    function _closePosition(uint256 _targetRepayAmount, bytes memory _swapParams) internal {
-        bytes memory callData = abi.encode(_swapParams, _targetRepayAmount);
+    function _closePosition(
+        uint256 _targetRepayAmount,
+        uint256 _targetWithdrawAmount,
+        bytes memory _swapParams
+    ) internal {
+        bytes memory callData = abi.encode(_swapParams, _targetWithdrawAmount);
         IPool(AAVE_POOL).flashLoanSimple(address(this), BORROW, _targetRepayAmount, callData, 0);
+    }
+
+    function _closeFullPosition(bytes memory _swapParams) internal {
+        bytes memory callData = abi.encode(_swapParams, IAToken(COLLATERAL).balanceOf(address(this)));
+        IPool(AAVE_POOL).flashLoanSimple(address(this), BORROW, IERC20(BORROW).balanceOf(address(this)), callData, 0);
     }
 
     function validateEMode(address asset0, address asset1) public view returns (uint8 eMode) {

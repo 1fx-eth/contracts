@@ -101,9 +101,23 @@ contract OneFXSlot is BaseAccount, UUPSUpgradeable, Initializable, AaveHandler {
      * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
      * the implementation by calling `upgradeTo()`
      */
-    function close(uint256 _targetRepayAmount, bytes calldata _swapParams) public virtual {
+    function close(
+        uint256 _targetRepayAmount,
+        uint256 _targetWithdrawAmount,
+        bytes calldata _swapParams
+    ) public virtual {
         // flash loan and swap
-        _closePosition(_targetRepayAmount, _swapParams);
+        _closePosition(_targetRepayAmount, _targetWithdrawAmount, _swapParams);
+    }
+
+    /**
+     * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
+     * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
+     * the implementation by calling `upgradeTo()`
+     */
+    function closeFullPosition(bytes calldata _swapParams) public virtual {
+        // flash loan and swap
+        _closeFullPosition(_swapParams);
     }
 
     /**

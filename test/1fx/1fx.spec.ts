@@ -107,52 +107,53 @@ describe('1fx Test', async () => {
         expect(borrowPostTrade.toString()).to.equal(amountBorrow.toString())
     })
 
-    // it('closes slot', async () => {
-    //     const collatKey = 'DAI'
-    //     const debtKey = 'USDC'
-    //     const collateral = aaveTest.tokens[collatKey]
-    //     const debt = aaveTest.tokens[debtKey]
-    //     const aTokenCollateral = aaveTest.aTokens[collatKey]
-    //     const vTokenBorrow = aaveTest.vTokens[debtKey]
-    //     const amountCollateral = parseUnits('1', 18)
-    //     const targetCollateral = parseUnits('30', 18)
-    //     const amountBorrow = targetCollateral.mul(101).div(99)
+    it('closes full slot', async () => {
+        const collatKey = 'DAI'
+        const debtKey = 'USDC'
+        const collateral = aaveTest.tokens[collatKey]
+        const debt = aaveTest.tokens[debtKey]
+        const aTokenCollateral = aaveTest.aTokens[collatKey]
+        const vTokenBorrow = aaveTest.vTokens[debtKey]
+        const amountCollateral = parseUnits('1', 18)
+        const targetCollateral = parseUnits('30', 18)
+        // repay more than he balances
+        const amountToRepay = targetCollateral.mul(105).div(100)
 
-    //     // approve projected address
-    //     const slotAddress = await factory.getAddress(1)
-    //     console.log("Slot", slotAddress)
+        // approve projected address
+        const slotAddress = await factory.getAddress(1)
+        console.log("Slot", slotAddress)
 
-    //     // function swap(address inAsset, address outAsset, uint256 inAm)
-    //     const params = mockRouter.interface.encodeFunctionData(
-    //         'swap',
-    //         [
-    //             collateral.address,
-    //             debt.address,
-    //             amountBorrow
-    //         ]
-    //     )
+        // function swap(address inAsset, address outAsset, uint256 inAm)
+        const params = mockRouter.interface.encodeFunctionData(
+            'swap',
+            [
+                collateral.address,
+                debt.address,
+                amountToRepay
+            ]
+        )
 
-    //     const slot = await new OneFXSlot__factory(alice).attach(slotAddress)
+        const slot = await new OneFXSlot__factory(alice).attach(slotAddress)
 
-    //     await factory.connect(alice).cl(
-    //         alice.address,
-    //         amountCollateral,
-    //         aTokenCollateral.address,
-    //         vTokenBorrow.address,
-    //         targetCollateral,
-    //         amountBorrow,
-    //         params
-    //     )
+        // await slot.close(
+        //     amountToRepay,
+        //     targetCollateral.add(amountCollateral),
+        //     params
+        // )
 
-    //     const collateralPostTrade = await aTokenCollateral.balanceOf(addressToApprove)
-    //     const borrowPostTrade = await vTokenBorrow.balanceOf(addressToApprove)
-    //     console.log("Collateral", formatEther(collateralPostTrade))
-    //     console.log("Debt", formatEther(borrowPostTrade))
-    //     // validate collateral
-    //     expect(collateralPostTrade.gt(ONE_18.mul(31))).to.equal(true)
-    //     // validate debt
-    //     expect(borrowPostTrade.toString()).to.equal(amountBorrow.toString())
-    // })
+        await slot.closeFullPosition(
+            params
+        )
+
+        const collateralPostTrade = await aTokenCollateral.balanceOf(slotAddress)
+        const borrowPostTrade = await vTokenBorrow.balanceOf(slotAddress)
+        console.log("Collateral", formatEther(collateralPostTrade))
+        console.log("Debt", formatEther(borrowPostTrade))
+        // validate collateral
+        expect(collateralPostTrade.toString()).to.equal('0')
+        // validate debt
+        // expect(borrowPostTrade.toString()).to.equal(amountBorrow.toString())
+    })
 
 
     it('deploys slot with permit', async () => {
