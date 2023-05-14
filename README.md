@@ -38,6 +38,8 @@ The following list contains all our live deployments on Polyogon (chainId 137):
 
 `entryPoint: 0x02567769aAD16E77f974c45080b66b3e42933331`
 
+Link to tweet with the live deployment: https://twitter.com/daniel_de_witte/status/1657635184194224130
+
 
 # Scripts
 
