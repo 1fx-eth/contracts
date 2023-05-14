@@ -31,7 +31,7 @@ async function main() {
 
 
     const collateralKey = 'USDC'
-    const debtKey = 'EURS'
+    const debtKey = 'USDT'
 
     const collateralAddress = (addressesTokens[collateralKey] as any)[chainId]
     const collateralATokenAddress = (addressesAaveATokens[collateralKey] as any)[chainId]
@@ -42,7 +42,7 @@ async function main() {
     const collateralToken = await new FiatWithPermit__factory(operator).attach(collateralAddress)
 
     // amount to borrow
-    const borrowBase = '7'
+    const borrowBase = '20'
 
     const borrowToken = await new ERC20Mock__factory(operator).attach(debtAddress)
 
@@ -61,7 +61,14 @@ async function main() {
 
     const slippage = 45
     const USDC_USDT_LIVE: any = await fetchData(
-        `https://api.1inch.io/v5.0/137/swap?fromTokenAddress=${debtAddress}&toTokenAddress=${collateralAddress}&amount=${swapAmount.toString()}&fromAddress=${projectedAddress}&slippage=${slippage}&destReceiver=${projectedAddress}&referrerAddress=${projectedAddress}&disableEstimate=true&compatibilityMode=true&burnChi=false&allowPartialFill=false&complexityLevel=0`
+        `https://api.1inch.io/v5.0/137/swap?fromTokenAddress=${debtAddress
+        }&toTokenAddress=${collateralAddress
+        }&amount=${swapAmount.toString()
+        }&fromAddress=${projectedAddress
+        }&slippage=${slippage
+        }&destReceiver=${projectedAddress
+        }&referrerAddress=${projectedAddress
+        }&disableEstimate=true&compatibilityMode=true&burnChi=false&allowPartialFill=false&complexityLevel=0`
     )
 
     const allowance = await collateralToken.allowance(operator.address, projectedAddress)

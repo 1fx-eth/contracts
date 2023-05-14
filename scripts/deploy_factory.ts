@@ -1,11 +1,8 @@
 import '@nomiclabs/hardhat-ethers'
 import hre from 'hardhat'
 import { EntryPoint__factory, OneFXLens__factory, OneFXSlotFactory__factory } from '../types';
+import { aavePool, entryPointAddress, router } from './aave_addresses';
 
-const aavePool = '0x794a61358D6845594F94dc1DB02A252b5b4814aD'
-const router = '0x1111111254eeb25477b68fb85ed929f73a960582'
-
-const entryPointAddress = '0x02567769aAD16E77f974c45080b66b3e42933331'
 
 async function main() {
 

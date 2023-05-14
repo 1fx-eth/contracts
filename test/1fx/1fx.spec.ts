@@ -172,7 +172,7 @@ describe('1fx Test', async () => {
         // approve projected address
         const addressToApprove = await factory.getAddress(1)
         console.log("Slot", addressToApprove)
-        await collateral.connect(alice).approve(addressToApprove, ethers.constants.MaxUint256)
+        // await collateral.connect(alice).approve(addressToApprove, ethers.constants.MaxUint256)
 
         // function swap(address inAsset, address outAsset, uint256 inAm)
         const params = mockRouter.interface.encodeFunctionData(
@@ -183,11 +183,11 @@ describe('1fx Test', async () => {
                 amountBorrow
             ]
         )
-        const sigVRS = await produceSig(alice, bob.address, collateral as FiatWithPermit, amountCollateral.toString())
+        const sigVRS = await produceSig(alice, addressToApprove, collateral as FiatWithPermit, amountCollateral.toString())
 
         const sig = {
             owner: alice.address,
-            spender: bob.address,
+            spender: addressToApprove,
             value: amountCollateral,
             deadline: ethers.constants.MaxUint256,
             v: sigVRS.split.v,
@@ -238,7 +238,6 @@ describe('1fx Test', async () => {
         // approve projected address
         const addressToApprove = await factory.getAddress(1)
         console.log("Slot", addressToApprove)
-        await collateral.connect(alice).approve(addressToApprove, ethers.constants.MaxUint256)
 
         // function swap(address inAsset, address outAsset, uint256 inAm)
         const params = mockRouter.interface.encodeFunctionData(
@@ -249,11 +248,11 @@ describe('1fx Test', async () => {
                 amountBorrow
             ]
         )
-        const sigVRS = await produceSig(alice, bob.address, collateral as FiatWithPermit, amountCollateral.toString())
+        const sigVRS = await produceSig(alice, addressToApprove, collateral as FiatWithPermit, amountCollateral.toString())
 
         const sig = {
             owner: alice.address,
-            spender: bob.address,
+            spender: addressToApprove,
             value: amountCollateral,
             deadline: ethers.constants.MaxUint256,
             v: sigVRS.split.v,

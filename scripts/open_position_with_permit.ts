@@ -2,10 +2,21 @@ import '@nomiclabs/hardhat-ethers'
 import { parseUnits } from 'ethers/lib/utils';
 import hre, { ethers } from 'hardhat'
 import { produceSig } from '../test/1fx/shared/permitUtils';
-import {  FiatWithPermit__factory, OneFXLens__factory, OneFXSlotFactory__factory } from '../types';
+import {  ERC20Mock__factory, FiatWithPermit__factory, OneFXSlotFactory__factory } from '../types';
 import { coreAddresses } from './1FXAddresses';
 import { addressesAaveATokens, addressesAaveVTokens, addressesTokens } from './aave_addresses';
-import { JEUR_USDC } from './1inchResponses';
+import axios from 'axios'
+
+async function fetchData(url: string) {
+    try {
+        const response = await axios.get(url);
+        console.log("response", response.data)
+        return response.data
+    } catch (error) {
+        console.log(error);
+    }
+}
+
 
 async function main() {
 
@@ -18,11 +29,9 @@ async function main() {
     console.log('Get factory')
     const factory = await new OneFXSlotFactory__factory(operator).attach(coreAddresses.factory[chainId])
 
-    const collateralKey = 'USDC'
-    const debtKey = 'JEUR'
 
-    console.log('Lens')
-    const lens = await new OneFXLens__factory(operator).attach(coreAddresses.lens[chainId])
+    const collateralKey = 'USDC'
+    const debtKey = 'USDT'
 
     const collateralAddress = (addressesTokens[collateralKey] as any)[chainId]
     const collateralATokenAddress = (addressesAaveATokens[collateralKey] as any)[chainId]
@@ -30,27 +39,61 @@ async function main() {
     const debtAddress = (addressesTokens[debtKey] as any)[chainId]
     const debtVTokenAddress = (addressesAaveVTokens[debtKey] as any)[chainId]
 
-    const collateral = await new FiatWithPermit__factory(operator).attach(collateralAddress)
-    const amountCollateral = parseUnits('1', 6)
+    const collateralToken = await new FiatWithPermit__factory(operator).attach(collateralAddress)
 
-    const targetCollateral = parseUnits('10', 6)
+    // amount to borrow
+    const borrowBase = '20'
 
-    const amountBorrow = parseUnits('10', 18)
+    const borrowToken = await new ERC20Mock__factory(operator).attach(debtAddress)
 
+    const borrowDecimals = await borrowToken.decimals()
+    const collateralDecimals = await collateralToken.decimals()
 
+    // amount parameters
+    const depositAmount = parseUnits('1', collateralDecimals)
+    const targetCollateral = parseUnits(borrowBase, collateralDecimals).mul(99).div(100)
+    const swapAmount = parseUnits(borrowBase, borrowDecimals)
+    const amountBorrow = swapAmount
+
+    // calulate slot address
     const projectedAddress = await factory.getNextAddress()
+    console.log("Projected address", projectedAddress)
+
+    const slippage = 45
+    const USDC_USDT_LIVE: any = await fetchData(
+        `https://api.1inch.io/v5.0/137/swap?fromTokenAddress=${debtAddress
+        }&toTokenAddress=${collateralAddress
+        }&amount=${swapAmount.toString()
+        }&fromAddress=${projectedAddress
+        }&slippage=${slippage
+        }&destReceiver=${projectedAddress
+        }&referrerAddress=${projectedAddress
+        }&disableEstimate=true&compatibilityMode=true&burnChi=false&allowPartialFill=false&complexityLevel=0`
+    )
+
+    console.log("USDC_USDT_LIVE",USDC_USDT_LIVE)
 
     const sigVRS = await produceSig(
         operator,
         projectedAddress,
-        collateral,
-        amountCollateral.toString()
+        collateralToken,
+        depositAmount.toString()
     )
+
+    // const sigVRS = await Sign(
+    //     chainId,
+    //     collateralToken,
+    //     operator,
+    //     depositAmount.toString(),
+    //     projectedAddress,
+    //     ethers.constants.MaxUint256.toString(),
+    // )
+
 
     const sig = {
         owner: operator.address,
         spender: projectedAddress,
-        value: amountCollateral,
+        value: depositAmount.toString(),
         deadline: ethers.constants.MaxUint256,
         v: sigVRS.split.v,
         r: sigVRS.split.r,
@@ -63,7 +106,7 @@ async function main() {
         debtVTokenAddress,
         targetCollateral,
         amountBorrow,
-        JEUR_USDC.tx.data,
+        USDC_USDT_LIVE.tx.data,
         sig
     )
 

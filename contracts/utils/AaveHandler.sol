@@ -260,8 +260,8 @@ contract AaveHandler is IFlashLoanSimpleReceiver {
     }
 
     function _closeFullPosition(bytes memory _swapParams) internal {
-        bytes memory callData = abi.encode(_swapParams, IAToken(COLLATERAL).balanceOf(address(this)));
-        IPool(AAVE_POOL).flashLoanSimple(address(this), BORROW, IERC20(BORROW).balanceOf(address(this)), callData, 0);
+        bytes memory callData = abi.encode(_swapParams, IAToken(A_COLLATERAL).balanceOf(address(this)));
+        IPool(AAVE_POOL).flashLoanSimple(address(this), BORROW, IERC20(V_BORROW).balanceOf(address(this)), callData, 0);
     }
 
     function validateEMode(address asset0, address asset1) public view returns (uint8 eMode) {

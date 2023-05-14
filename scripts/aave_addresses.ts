@@ -1,3 +1,8 @@
+
+export const aavePool = '0x794a61358D6845594F94dc1DB02A252b5b4814aD'
+export const router = '0x1111111254eeb25477b68fb85ed929f73a960582'
+export const entryPointAddress = '0x02567769aAD16E77f974c45080b66b3e42933331'
+
 export const addressesAaveATokens = {
     AAVE: {
       137: '0xf329e36C7bF6E5E86ce2150875a84Ce77f477375',
