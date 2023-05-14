@@ -24,6 +24,8 @@ Compile contracts with `npx hardhat compile`.
 
 Run `npx hardhat test test/1fx/1fx.spec.ts` to execute the unit tests.
 
+The unit tests set up a complete Aave protocol and open the leveraged positions through the OneFXSlots. The resulting borrowing and collateral balances are validated in the tests.
+
 # Deployments on Polygon PoS
 
 The following list contains all our live deployments on Polyogon (chainId 137):
