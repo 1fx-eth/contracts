@@ -2,13 +2,13 @@
 
 FX trading on AAVE using 1inch / generic type swap routers.
 
-1inch swap router implementation is illustrated in `scripts/open_position.ts`. Works with all other types of routers that return a single uint256 as swap output amount. 
+1inch swap router implementation is illustrated in `scripts/open_position.ts`. Works with all other types of routers that return a single `uint256` as swap output amount. 
 
 # Core contract compomnents
 
-The core contracts are the OneFXSlotFactory and the OneFXSlot.
+The core contracts are the `OneFXSlotFactory` and the `OneFXSlot`.
 
-OneFXSLotFactory deploys UUPS Upgradeaple contracts that implement EIP-4337 abstract accounts to enable automated creation of leveraged positions on the user's behalf.
+OneFXSLotFactory deploys UUPS Upgradeable contracts that implement EIP-4337 abstract accounts to enable automated creation of leveraged positions on the user's behalf.
 
 The user controls the slot and can manage the position through interacting with a slot contract they own.
 
@@ -39,5 +39,7 @@ The following list contains all our live deployments on Polyogon (chainId 137):
 Populate a .env file as suggested in .env.example to be able to run the scrips using the live deployment.
 
 `deploy_factory.ts`: deploys the stack.
+
 `deploy_lens.ts`: deploys the OneFXLens contract - a smart contract that aggregates the position data for a frontend.
+
 `open_position.ts`: opens a positions with the addresses in `scripts/1FXAddresses.ts`. The 1inch API is used to execute thae trade.
