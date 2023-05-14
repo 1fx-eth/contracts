@@ -34,12 +34,13 @@ The following list contains all our live deployments on Polyogon (chainId 137):
 
 `OneFxSlot implementation: 0x988ec4e26f39eec06658ad5f73be82e72c4f368e`
 
-`lens:  0xAe3C2d45270791Ef8aD023D1E66d275255db0499`
+`OneFXLens:  0xAe3C2d45270791Ef8aD023D1E66d275255db0499`
 
-`entryPoint: 0x02567769aAD16E77f974c45080b66b3e42933331`
+`EntryPoint: 0x02567769aAD16E77f974c45080b66b3e42933331`
 
 Link to tweet with the live deployment: https://twitter.com/daniel_de_witte/status/1657635184194224130
 
+An example of a 20x leveraged position created throught this factory is [here](https://polygonscan.com/address/0xB5Cee144309B9e36e7bce1B5B07432f8F2f42224#code).
 
 # Scripts
 
