@@ -1,4 +1,4 @@
-# ETHGlobal Lisbon
+# 1fx Margin Trading Smart Contracts - ETHGlobal Lisbon
 
 FX trading on AAVE using 1inch / generic type swap routers.
 
