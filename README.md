@@ -31,8 +31,11 @@ The unit tests set up a complete Aave protocol and open the leveraged positions 
 The following list contains all our live deployments on Polyogon (chainId 137):
 
 `OneFXSlotFactory: 0x648cE75895873BECBC4c9a291A28CA1EF121953B`
+
 `OneFxSlot implementation: 0x988ec4e26f39eec06658ad5f73be82e72c4f368e`
+
 `lens:  0xAe3C2d45270791Ef8aD023D1E66d275255db0499`
+
 `entryPoint: 0x02567769aAD16E77f974c45080b66b3e42933331`
 
 
